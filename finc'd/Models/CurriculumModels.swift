@@ -63,6 +63,34 @@ enum QuestionKind: String, Codable {
     case formulaMapping
 }
 
+enum LessonInteractionTemplate: String, Codable, Hashable {
+    case identifyInputs
+    case chooseMethod
+    case matchPeriod
+
+    var title: String {
+        switch self {
+        case .identifyInputs: "Identify the input"
+        case .chooseMethod: "Choose the method"
+        case .matchPeriod: "Match the period"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .identifyInputs: "number.square"
+        case .chooseMethod: "list.bullet.rectangle"
+        case .matchPeriod: "calendar.badge.clock"
+        }
+    }
+}
+
+struct QuestionInteraction: Codable, Hashable {
+    let template: LessonInteractionTemplate
+    let target: String
+    let guidance: String
+}
+
 struct Course: Identifiable {
     let id: String
     let title: String
@@ -103,6 +131,7 @@ struct Question: Identifiable, Hashable {
     let id: String
     let lessonID: String
     let kind: QuestionKind
+    let interaction: QuestionInteraction?
     let primarySkillID: String
     let context: String
     let prompt: String

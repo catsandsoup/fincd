@@ -155,35 +155,16 @@ struct LessonRunnerView: View {
     private func inputView(_ question: Question) -> some View {
         switch question.kind {
         case .choice, .formulaMapping:
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(question.options) { option in
-                    Button {
-                        guard feedback?.isCorrect != true else { return }
-                        selectedOptionID = option.id
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: optionSymbol(option))
-                                .foregroundStyle(optionForeground(option))
-                                .frame(width: 18)
-                                .accessibilityHidden(true)
-
-                            Text(option.label)
-                                .font(.title3.weight(.medium))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 15)
-                        .background(optionBackground(option), in: .rect(cornerRadius: 12))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(optionBorder(option), lineWidth: selectedOptionID == option.id ? 1.2 : 0.8)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(option.label)
-                    .accessibilityAddTraits(selectedOptionID == option.id ? .isSelected : [])
-                }
+            if question.interaction != nil {
+                LessonInteractionTemplateView(
+                    question: question,
+                    tint: tint,
+                    selectedOptionID: $selectedOptionID,
+                    isChecked: feedback != nil,
+                    isLocked: feedback?.isCorrect == true
+                )
+            } else {
+                legacyChoiceView(question)
             }
 
         case .numeric:
@@ -205,6 +186,39 @@ struct LessonRunnerView: View {
                 }
             }
             .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func legacyChoiceView(_ question: Question) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(question.options) { option in
+                Button {
+                    guard feedback?.isCorrect != true else { return }
+                    selectedOptionID = option.id
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: optionSymbol(option))
+                            .foregroundStyle(optionForeground(option))
+                            .frame(width: 18)
+                            .accessibilityHidden(true)
+
+                        Text(option.label)
+                            .font(.title3.weight(.medium))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 15)
+                    .background(optionBackground(option), in: .rect(cornerRadius: 12))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(optionBorder(option), lineWidth: selectedOptionID == option.id ? 1.2 : 0.8)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(option.label)
+                .accessibilityAddTraits(selectedOptionID == option.id ? .isSelected : [])
+            }
         }
     }
 
@@ -442,7 +456,12 @@ struct LessonRunnerView: View {
     private var headerDetail: String {
         let unit = CurriculumCatalog.unit(id: lesson.unitID)
         let course = unit.flatMap { CurriculumCatalog.course(id: $0.courseID) }
-        return [course?.title, unit?.title].compactMap { $0 }.joined(separator: " - ")
+        return [progressLabel, course?.title, unit?.title].compactMap { $0 }.joined(separator: " - ")
+    }
+
+    private var progressLabel: String {
+        let noun = lesson.kind == .practice || lesson.kind == .check ? "Question" : "Step"
+        return "\(noun) \(min(currentIndex + 1, max(queue.count, 1))) of \(max(queue.count, 1))"
     }
 
     private var tint: Color {

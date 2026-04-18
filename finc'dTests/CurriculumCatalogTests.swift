@@ -32,6 +32,18 @@ struct CurriculumCatalogTests {
         }
     }
 
+    @Test func interactionTemplatesRemainChoiceBackedForStageThreeSlice() {
+        let interactionQuestions = CurriculumCatalog.questions.filter { $0.interaction != nil }
+
+        #expect(!interactionQuestions.isEmpty)
+
+        for question in interactionQuestions {
+            #expect(question.kind == .choice)
+            #expect(question.options.count >= 2)
+            #expect(question.options.contains { $0.isCorrect })
+        }
+    }
+
     @Test func lessonOrderStartsFromInputsBeforeCalculations() {
         let firstTVMLesson = CurriculumCatalog.lessons(forCourse: "tvm").first
         let firstCAPMLesson = CurriculumCatalog.lessons(forCourse: "capm").first

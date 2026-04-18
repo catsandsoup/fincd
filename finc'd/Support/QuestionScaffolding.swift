@@ -21,6 +21,10 @@ struct LessonStep: Identifiable, Hashable {
 
 enum QuestionScaffolding {
     static func steps(for question: Question) -> [LessonStep] {
+        if let interaction = question.interaction {
+            return interactionSteps(for: interaction)
+        }
+
         switch question.kind {
         case .choice, .formulaMapping:
             return [
@@ -73,6 +77,17 @@ enum QuestionScaffolding {
     }
 
     static func conceptNote(for question: Question) -> String {
+        if let interaction = question.interaction {
+            switch interaction.template {
+            case .identifyInputs:
+                return "Most finance mistakes start with a number in the wrong role. Name the input before calculating."
+            case .chooseMethod:
+                return "The method comes from the wording of the cash flows or return question. Classify first, then compute."
+            case .matchPeriod:
+                return "The rate used in a formula must match the cash-flow interval. Convert before substituting."
+            }
+        }
+
         switch question.primarySkillID {
         case let id where id.hasPrefix("S1.1"):
             return "A quoted annual rate is often not the rate that belongs in the formula. First match the rate period to the cash-flow period."
@@ -111,6 +126,29 @@ enum QuestionScaffolding {
             return "Translate the result back into a financial sentence."
         }
         return "Connect the story to the next useful finance move."
+    }
+
+    private static func interactionSteps(for interaction: QuestionInteraction) -> [LessonStep] {
+        switch interaction.template {
+        case .identifyInputs:
+            return [
+                LessonStep(id: 1, title: "Find the target", detail: "You are looking for \(interaction.target). Read the wording around each number.", systemImage: "scope"),
+                LessonStep(id: 2, title: "Ignore nearby distractors", detail: "Rates, periods, totals, and payments can sit close together in the story.", systemImage: "line.3.horizontal.decrease.circle"),
+                LessonStep(id: 3, title: "Select one role", detail: "Choose the number that plays this exact role in the formula.", systemImage: "checkmark.circle")
+            ]
+        case .chooseMethod:
+            return [
+                LessonStep(id: 1, title: "Classify the situation", detail: "Use the timing and wording before choosing a formula.", systemImage: "list.bullet.rectangle"),
+                LessonStep(id: 2, title: "Check the trigger words", detail: "Beginning, end, forever, market, debt, and equity words usually point to the method.", systemImage: "text.magnifyingglass"),
+                LessonStep(id: 3, title: "Choose the tool", detail: "Pick the method that fits the structure of the problem.", systemImage: "checkmark.circle")
+            ]
+        case .matchPeriod:
+            return [
+                LessonStep(id: 1, title: "Name the cash-flow interval", detail: "Start with when each payment or coupon arrives.", systemImage: "calendar"),
+                LessonStep(id: 2, title: "Name the rate interval", detail: "A quoted annual rate may need conversion before the formula.", systemImage: "percent"),
+                LessonStep(id: 3, title: "Make them match", detail: interaction.target, systemImage: "equal.circle")
+            ]
+        }
     }
 
     private static func fallbackTerms(for question: Question) -> [FormulaTerm] {

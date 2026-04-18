@@ -116,7 +116,7 @@ enum CurriculumCatalog {
     static let lessons: [Lesson] = [
         Lesson(id: "tvm.rate.start", unitID: "tvm.rates", title: "Match the Period", kind: .lesson, skillIDs: ["S1.1-R", "S1.1-M"], order: 1, estimatedSeconds: 120, questionIDs: ["q.tvm.rate.1", "q.tvm.rate.2", "q.tvm.rate.3"]),
         Lesson(id: "tvm.rate.compute", unitID: "tvm.rates", title: "Convert Before Comparing", kind: .practice, skillIDs: ["S1.1-E"], order: 2, estimatedSeconds: 160, questionIDs: ["q.tvm.rate.4", "q.tvm.rate.5"]),
-        Lesson(id: "tvm.annuity.basics", unitID: "tvm.annuities", title: "Name the Cash Flow", kind: .lesson, skillIDs: ["S1.2-R", "S1.2-M"], order: 3, estimatedSeconds: 150, questionIDs: ["q.tvm.annuity.1", "q.tvm.annuity.2", "q.tvm.annuity.3"]),
+        Lesson(id: "tvm.annuity.basics", unitID: "tvm.annuities", title: "Timeline First, Formula Second", kind: .lesson, skillIDs: ["S1.2-R", "S1.2-M", "S1.2-E"], order: 3, estimatedSeconds: 210, questionIDs: ["q.tvm.annuity.1", "q.tvm.annuity.2", "q.tvm.annuity.3", "q.tvm.annuity.4", "q.tvm.annuity.5"]),
         Lesson(id: "tvm.deferred", unitID: "tvm.annuities", title: "Shifted Cash Flows", kind: .boss, skillIDs: ["S1.4-R", "S1.4-E", "S1.2-E"], order: 4, estimatedSeconds: 300, questionIDs: ["q.tvm.defer.1", "q.tvm.defer.2", "q.tvm.defer.3"]),
         Lesson(id: "tvm.forever", unitID: "tvm.perpetuities", title: "Forever Needs Next Period", kind: .lesson, skillIDs: ["S1.5-R", "S1.5-M", "S1.5-E"], order: 5, estimatedSeconds: 180, questionIDs: ["q.tvm.perp.1", "q.tvm.perp.2", "q.tvm.perp.3"]),
 
@@ -160,23 +160,31 @@ enum CurriculumCatalog {
 
         numeric("q.tvm.rate.5", "tvm.rate.compute", "S1.1-E", "A loan is quoted at 4.8% per year compounded daily, but repayments are monthly.", "What effective monthly rate should enter the annuity formula? Give a percent.", FormulaDisplay(latex: "i_{month} = (1 + 0.048/365)^{365/12} - 1", spoken: "Monthly rate equals daily growth accumulated over one twelfth of a year."), 0.401, 1.0, "%", ["Do not use 4.8% as the period rate.", "Accumulate the daily rate over 365/12 days."], "Right. The monthly rate is about 0.401%."),
 
-        choice("q.tvm.annuity.1", "tvm.annuity.basics", "S1.2-R", "A renter pays the same amount at the end of every month for five years.", "What kind of cash-flow pattern is this?", nil, [
+        templateChoice("q.tvm.annuity.1", "tvm.annuity.basics", "S1.2-R", .chooseMethod, "Timing words", "Classify the cash-flow pattern before choosing a formula.", "A renter pays the same amount at the end of every month for five years.", "What kind of cash-flow pattern is this?", nil, [
             option("Ordinary annuity", true, nil, "Correct. Equal cash flows at the end of each regular period."),
             option("Annuity due", false, "timing_offset", "An annuity due pays at the beginning of each period."),
             option("Growing perpetuity", false, "wrong_tool", "This has a fixed number of payments and no growth.")
         ], ["Look for equal amounts and regular timing.", "End of period means ordinary."], "Ordinary annuities pay at period end."),
 
-        choice("q.tvm.annuity.2", "tvm.annuity.basics", "S1.2-M", "You borrow $438,000 and repay monthly for 30 years.", "What is n in the monthly loan formula?", nil, [
-            option("360", true, nil, "Correct. n is the number of monthly payments."),
-            option("30", false, "period_count", "30 is years. The formula needs the number of cash flows."),
-            option("12", false, "period_count", "12 is payments per year, not total payments.")
-        ], ["n counts cash flows.", "30 years times 12 payments per year."], "The loan has 360 monthly payments."),
+        templateChoice("q.tvm.annuity.2", "tvm.annuity.basics", "S1.2-M", .identifyInputs, "PMT", "Select the repeated cash flow, not the total or the rate.", "You will receive $500 at the end of each month for five years. The effective monthly rate is 0.5%.", "Which value is PMT?", nil, [
+            option("$500", true, nil, "Correct. PMT is one repeated monthly cash flow."),
+            option("0.5%", false, "symbol_confusion", "That is the monthly rate, usually written as i."),
+            option("Five years", false, "period_count", "That helps find the number of payments, but it is not PMT.")
+        ], ["PMT means one repeated payment.", "Do not use the total of all payments as PMT."], "PMT is the $500 paid each month."),
 
-        choice("q.tvm.annuity.3", "tvm.annuity.basics", "S1.2-M", "You see PMT in an annuity formula.", "What does PMT mean here?", nil, [
-            option("The equal cash flow each period", true, nil, "Correct. PMT is the repeated payment amount."),
-            option("The total amount borrowed", false, "symbol_confusion", "That is the present value in a loan setting."),
-            option("The number of compounding periods", false, "symbol_confusion", "That is usually n or m depending on the formula.")
-        ], ["PMT is the repeated payment.", "In a loan, PMT is each repayment."], "PMT is one cash flow, not the whole loan."),
+        templateChoice("q.tvm.annuity.3", "tvm.annuity.basics", "S1.2-M", .matchPeriod, "Formula rate must match the monthly payment interval.", "Match the rate period to the payment period before calculating.", "Payments arrive monthly. The annual quote has already been converted to 0.5% effective per month.", "Which rate belongs in the annuity formula?", nil, [
+            option("0.5% per month", true, nil, "Correct. The formula rate must match the monthly payment period."),
+            option("6% per year", false, "period_mismatch", "That annual rate does not match the monthly cash-flow interval."),
+            option("30% over five years", false, "period_mismatch", "The formula needs a rate per payment period, not a whole-horizon rate.")
+        ], ["Find the payment interval first.", "Monthly payments need a monthly formula rate."], "Use the monthly rate in the formula."),
+
+        numeric("q.tvm.annuity.4", "tvm.annuity.basics", "S1.2-E", "You receive $500 at the end of each month for five years. The effective monthly rate is 0.5%.", "What is the present value of the payments?", FormulaDisplay(latex: "PV = PMT \\times \\frac{1 - (1+i)^{-n}}{i}", spoken: "Present value equals payment times one minus one plus i to the negative n, divided by i."), 25862.83, 0.5, "$", ["Five years of monthly payments gives n = 60.", "Use i = 0.005, not 0.06."], "Correct. The present value is about $25,863."),
+
+        choice("q.tvm.annuity.5", "tvm.annuity.basics", "S1.2-E", "The undiscounted payments total $30,000.", "Should the present value be more or less than the simple total?", nil, [
+            option("Less than $30,000", true, nil, "Correct. Future payments are discounted, so their value today is below the simple total."),
+            option("Exactly $30,000", false, "discounting_ignored", "That ignores the time value of money."),
+            option("More than $30,000", false, "discounting_direction", "Discounting future payments reduces their value today.")
+        ], ["Compare today's value with the future dollars added together.", "A positive discount rate pulls future cash flows below the simple total."], "Present value should be below the undiscounted total."),
 
         choice("q.tvm.defer.1", "tvm.deferred", "S1.4-R", "A project pays $1m every 3 years. The first cash flow is in 1.5 years.", "Which description fits best?", nil, [
             option("A deferred annuity", true, nil, "Yes. The equal cash flows exist, but the first one is shifted away from a normal period boundary."),
@@ -428,6 +436,43 @@ enum CurriculumCatalog {
             id: id,
             lessonID: lessonID,
             kind: .choice,
+            interaction: nil,
+            primarySkillID: skillID,
+            context: context,
+            prompt: prompt,
+            formula: formula,
+            options: options,
+            numericAnswer: nil,
+            tolerancePercent: 0,
+            unitSuffix: nil,
+            hints: hints,
+            successMessage: success
+        )
+    }
+
+    private static func templateChoice(
+        _ id: String,
+        _ lessonID: String,
+        _ skillID: String,
+        _ template: LessonInteractionTemplate,
+        _ target: String,
+        _ guidance: String,
+        _ context: String,
+        _ prompt: String,
+        _ formula: FormulaDisplay?,
+        _ options: [AnswerOption],
+        _ hints: [String],
+        _ success: String
+    ) -> Question {
+        Question(
+            id: id,
+            lessonID: lessonID,
+            kind: .choice,
+            interaction: QuestionInteraction(
+                template: template,
+                target: target,
+                guidance: guidance
+            ),
             primarySkillID: skillID,
             context: context,
             prompt: prompt,
@@ -458,6 +503,7 @@ enum CurriculumCatalog {
             id: id,
             lessonID: lessonID,
             kind: .numeric,
+            interaction: nil,
             primarySkillID: skillID,
             context: context,
             prompt: prompt,
