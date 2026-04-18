@@ -40,6 +40,36 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .startReview)) { _ in
             selection = .lesson(ProgressResolver.recommendedLesson(masteries: masteryMap).id)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openHome)) { _ in
+            selection = .home
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openProgress)) { _ in
+            selection = .progress
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openNotebook)) { _ in
+            selection = .notebook
+        }
+        .toolbar {
+            ToolbarItemGroup {
+                Button {
+                    selection = .lesson(ProgressResolver.recommendedLesson(masteries: masteryMap).id)
+                } label: {
+                    Label("Continue", systemImage: "play.fill")
+                }
+
+                Button {
+                    selection = .notebook
+                } label: {
+                    Label("Notebook", systemImage: "book.closed")
+                }
+
+                Button {
+                    selection = .progress
+                } label: {
+                    Label("Progress", systemImage: "chart.bar.xaxis")
+                }
+            }
+        }
     }
 
     @ViewBuilder

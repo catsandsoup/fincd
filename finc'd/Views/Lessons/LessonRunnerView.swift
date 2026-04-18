@@ -20,6 +20,7 @@ struct LessonRunnerView: View {
     @State private var feedback: LessonFeedback?
     @State private var hintsShown = 0
     @State private var requeuedQuestionIDs = Set<String>()
+    @FocusState private var numericFieldFocused: Bool
 
     private var currentQuestion: Question? {
         guard queue.indices.contains(currentIndex) else { return nil }
@@ -35,7 +36,7 @@ struct LessonRunnerView: View {
                         questionBody(question)
                     }
                     .padding(28)
-                    .frame(maxWidth: 880, alignment: .leading)
+                    .frame(maxWidth: 1180, alignment: .leading)
                 }
 
                 actionBar(question)
@@ -47,6 +48,18 @@ struct LessonRunnerView: View {
             if queue.isEmpty {
                 queue = CurriculumCatalog.questions(for: lesson)
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showLessonHint)) { _ in
+            guard let question = currentQuestion else { return }
+            showNextHint(question)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .checkLessonAnswer)) { _ in
+            guard let question = currentQuestion, canCheck(question), feedback?.isCorrect != true else { return }
+            check(question)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .advanceLessonStep)) { _ in
+            guard feedback?.isCorrect == true else { return }
+            moveForward()
         }
         .animation(reduceMotion ? nil : .smooth, value: currentIndex)
     }
@@ -75,6 +88,25 @@ struct LessonRunnerView: View {
     }
 
     private func questionBody(_ question: Question) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 24) {
+                promptColumn(question)
+                    .frame(minWidth: 520, maxWidth: 760, alignment: .leading)
+
+                LessonWorkspaceView(question: question, tint: tint)
+                    .frame(width: 330, alignment: .topLeading)
+                    .id(question.id)
+            }
+
+            VStack(alignment: .leading, spacing: 22) {
+                promptColumn(question)
+                LessonWorkspaceView(question: question, tint: tint)
+                    .id(question.id)
+            }
+        }
+    }
+
+    private func promptColumn(_ question: Question) -> some View {
         VStack(alignment: .leading, spacing: 22) {
             GlassPanel {
                 VStack(alignment: .leading, spacing: 18) {
@@ -121,8 +153,10 @@ struct LessonRunnerView: View {
                         selectedOptionID = option.id
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: selectedOptionID == option.id ? "largecircle.fill.circle" : "circle")
-                                .foregroundStyle(selectedOptionID == option.id ? tint : .secondary)
+                            Image(systemName: optionSymbol(option))
+                                .foregroundStyle(optionForeground(option))
+                                .frame(width: 18)
+                                .accessibilityHidden(true)
 
                             Text(option.label)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -132,6 +166,8 @@ struct LessonRunnerView: View {
                         .background(optionBackground(option), in: .rect(cornerRadius: 12))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(option.label)
+                    .accessibilityAddTraits(selectedOptionID == option.id ? .isSelected : [])
                 }
             }
 
@@ -142,6 +178,7 @@ struct LessonRunnerView: View {
                     .font(.system(.title2, design: .rounded, weight: .semibold))
                     .frame(width: 220)
                     .disabled(feedback?.isCorrect == true)
+                    .focused($numericFieldFocused)
                     .onSubmit {
                         check(question)
                     }
@@ -182,6 +219,7 @@ struct LessonRunnerView: View {
                 Label("Hint", systemImage: "lightbulb")
             }
             .buttonStyle(QuietGlassButtonStyle())
+            .keyboardShortcut("/", modifiers: [.command])
             .disabled(hintsShown >= question.hints.count || feedback?.isCorrect == true)
 
             Spacer()
@@ -193,6 +231,7 @@ struct LessonRunnerView: View {
                     Label(isLastQuestion ? "Finish" : "Continue", systemImage: "arrow.right")
                 }
                 .buttonStyle(PrimaryGlassButtonStyle())
+                .keyboardShortcut(.rightArrow, modifiers: [.command])
             } else {
                 Button {
                     check(question)
@@ -200,6 +239,7 @@ struct LessonRunnerView: View {
                     Label("Check", systemImage: "checkmark")
                 }
                 .buttonStyle(PrimaryGlassButtonStyle())
+                .keyboardShortcut(.return, modifiers: [.command])
                 .disabled(!canCheck(question))
             }
         }
@@ -209,8 +249,12 @@ struct LessonRunnerView: View {
     }
 
     private func optionBackground(_ option: AnswerOption) -> Color {
-        if feedback?.isCorrect == true, option.isCorrect {
+        if feedback != nil, option.isCorrect {
             return Color.green.opacity(0.16)
+        }
+
+        if feedback != nil, selectedOptionID == option.id, !option.isCorrect {
+            return Color.red.opacity(0.14)
         }
 
         if selectedOptionID == option.id {
@@ -218,6 +262,30 @@ struct LessonRunnerView: View {
         }
 
         return Color.secondary.opacity(0.08)
+    }
+
+    private func optionForeground(_ option: AnswerOption) -> Color {
+        if feedback != nil, option.isCorrect {
+            return .green
+        }
+
+        if feedback != nil, selectedOptionID == option.id, !option.isCorrect {
+            return .red
+        }
+
+        return selectedOptionID == option.id ? tint : .secondary
+    }
+
+    private func optionSymbol(_ option: AnswerOption) -> String {
+        if feedback != nil, option.isCorrect {
+            return "checkmark.circle.fill"
+        }
+
+        if feedback != nil, selectedOptionID == option.id, !option.isCorrect {
+            return "xmark.circle.fill"
+        }
+
+        return selectedOptionID == option.id ? "largecircle.fill.circle" : "circle"
     }
 
     private func showNextHint(_ question: Question) {
@@ -337,6 +405,7 @@ struct LessonRunnerView: View {
         numericText = ""
         feedback = nil
         hintsShown = 0
+        numericFieldFocused = currentQuestion?.kind == .numeric
     }
 
     private var headerDetail: String {

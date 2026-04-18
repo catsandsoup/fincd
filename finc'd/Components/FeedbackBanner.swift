@@ -24,7 +24,7 @@ struct FeedbackBanner: View {
                     .foregroundStyle(.secondary)
 
                 if let diagnosisTag {
-                    Text(diagnosisTag.replacingOccurrences(of: "_", with: " "))
+                    Text(LearningCopy.patternTitle(for: diagnosisTag))
                         .font(.caption.weight(.medium))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)

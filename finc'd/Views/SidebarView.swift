@@ -22,10 +22,7 @@ struct SidebarView: View {
 
             Section("Courses") {
                 ForEach(CurriculumCatalog.courses) { course in
-                    SidebarCourseRow(
-                        course: course,
-                        confidence: ProgressResolver.courseConfidence(course.id, masteries: masteryMap)
-                    )
+                    SidebarCourseRow(course: course)
                     .tag(SidebarSelection.course(course.id))
                 }
             }
@@ -36,7 +33,6 @@ struct SidebarView: View {
 
 private struct SidebarCourseRow: View {
     let course: Course
-    let confidence: Double
 
     var body: some View {
         HStack(spacing: 10) {
@@ -44,14 +40,8 @@ private struct SidebarCourseRow: View {
                 .foregroundStyle(course.tint)
                 .frame(width: 18)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(course.title)
-                    .lineLimit(1)
-                Text(NumberFormatting.confidenceStatus(confidence))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+            Text(course.title)
+                .lineLimit(1)
         }
     }
 }

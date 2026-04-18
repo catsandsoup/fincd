@@ -20,16 +20,15 @@ struct HomeDashboardView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 28) {
                 header
-
-                focusPanel
-
-                courseStrip
+                todayPanel
+                pathSection
                 revisitSection
             }
-            .padding(28)
-            .frame(maxWidth: 1120, alignment: .leading)
+            .padding(.horizontal, 34)
+            .padding(.vertical, 30)
+            .frame(maxWidth: 1040, alignment: .leading)
         }
         .background(.background)
     }
@@ -45,99 +44,103 @@ struct HomeDashboardView: View {
         }
     }
 
-    private var focusPanel: some View {
+    private var todayPanel: some View {
         GlassPanel {
             ViewThatFits {
-                HStack(alignment: .top, spacing: 28) {
-                    continuePanel
+                HStack(alignment: .center, spacing: 28) {
+                    todayCopy
+                    Spacer(minLength: 18)
                     Divider()
-                    reviewPanel
+                    todayActions
                 }
 
                 VStack(alignment: .leading, spacing: 22) {
-                    continuePanel
+                    todayCopy
                     Divider()
-                    reviewPanel
+                    todayActions
                 }
             }
         }
     }
 
-    private var continuePanel: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Label("Continue", systemImage: recommendedLesson.kind.systemImage)
+    private var todayCopy: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Start here", systemImage: recommendedLesson.kind.systemImage)
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text(recommendedLesson.title)
-                    .font(.title.weight(.semibold))
-                Text(lessonSubtitle(recommendedLesson))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(recommendedLesson.title)
+                .font(.largeTitle.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
 
-            Button {
-                selection = .lesson(recommendedLesson.id)
-            } label: {
-                Label("Open", systemImage: "arrow.right")
-            }
-            .buttonStyle(PrimaryGlassButtonStyle())
+            Text(lessonSubtitle(recommendedLesson))
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var reviewPanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label("Notebook", systemImage: "book.closed")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+    private var todayActions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                selection = .lesson(recommendedLesson.id)
+            } label: {
+                Label("Continue", systemImage: "play.fill")
+            }
+            .buttonStyle(PrimaryGlassButtonStyle())
 
             Text(reviewText)
-                .font(.title3.weight(.semibold))
-
-            Text("Revisit ideas that need another look.")
+                .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Button {
-                selection = .lesson(recommendedLesson.id)
-            } label: {
-                Label("Review", systemImage: "arrow.triangle.2.circlepath")
+            if attempts.contains(where: { !$0.isCorrect }) {
+                Button {
+                    selection = .notebook
+                } label: {
+                    Label("Open Notebook", systemImage: "book.closed")
+                }
+                .buttonStyle(QuietGlassButtonStyle())
             }
-            .buttonStyle(QuietGlassButtonStyle())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minWidth: 230, alignment: .leading)
     }
 
-    private var courseStrip: some View {
+    private var pathSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Courses")
-                .font(.title3.weight(.semibold))
+            Text("Path")
+                .font(.title2.weight(.semibold))
 
             VStack(spacing: 0) {
                 ForEach(CurriculumCatalog.courses) { course in
+                    let confidence = ProgressResolver.courseConfidence(course.id, masteries: masteryMap)
                     Button {
                         selection = .course(course.id)
                     } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 14) {
                             Image(systemName: course.symbol)
                                 .foregroundStyle(course.tint)
-                                .frame(width: 22)
+                                .font(.title3)
+                                .frame(width: 26)
 
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 6) {
                                 Text(course.title)
                                     .font(.headline)
                                 Text(course.subtitle)
                                     .font(.callout)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
+
+                                ProgressView(value: confidence)
+                                    .tint(course.tint)
+                                    .frame(maxWidth: 220)
                             }
 
                             Spacer()
 
-                            Text(NumberFormatting.confidenceStatus(ProgressResolver.courseConfidence(course.id, masteries: masteryMap)))
-                                .font(.headline)
+                            Text(NumberFormatting.confidenceStatus(confidence))
+                                .font(.callout.weight(.medium))
                                 .foregroundStyle(.secondary)
 
                             Image(systemName: "chevron.right")
@@ -151,22 +154,21 @@ struct HomeDashboardView: View {
 
                     if course.id != CurriculumCatalog.courses.last?.id {
                         Divider()
+                            .padding(.leading, 40)
                     }
                 }
             }
         }
     }
 
+    @ViewBuilder
     private var revisitSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Skills to Revisit")
-                .font(.title3.weight(.semibold))
+        if !skillsToRevisit.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Focus Next")
+                    .font(.title2.weight(.semibold))
 
-            if skillsToRevisit.isEmpty {
-                Text("No review items yet.")
-                    .foregroundStyle(.secondary)
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], spacing: 10) {
+                VStack(spacing: 0) {
                     ForEach(skillsToRevisit) { skill in
                         HStack(spacing: 10) {
                             SkillTagView(tag: skill.tag)
@@ -174,7 +176,11 @@ struct HomeDashboardView: View {
                                 .lineLimit(2)
                             Spacer()
                         }
-                        .padding(.vertical, 6)
+                        .padding(.vertical, 10)
+
+                        if skill.id != skillsToRevisit.last?.id {
+                            Divider()
+                        }
                     }
                 }
             }
@@ -184,9 +190,9 @@ struct HomeDashboardView: View {
     private var reviewText: String {
         let reviewCount = attempts.filter { !$0.isCorrect }.count
         if reviewCount == 0 {
-            return "Nothing in the notebook yet"
+            return "Your notebook is clear."
         }
-        return "\(reviewCount) item\(reviewCount == 1 ? "" : "s") to revisit"
+        return "\(reviewCount) idea\(reviewCount == 1 ? "" : "s") waiting in your notebook."
     }
 
     private func lessonSubtitle(_ lesson: Lesson) -> String {
@@ -194,6 +200,6 @@ struct HomeDashboardView: View {
         let course = unit.flatMap { CurriculumCatalog.course(id: $0.courseID) }
         return [course?.title, unit?.title, NumberFormatting.duration(seconds: lesson.estimatedSeconds)]
             .compactMap { $0 }
-            .joined(separator: " - ")
+            .joined(separator: " / ")
     }
 }

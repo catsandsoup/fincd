@@ -9,7 +9,10 @@ enum FormulaFormatter {
     static func display(from latex: String) -> String {
         var text = latex
         let replacements: [(String, String)] = [
+            ("\\left", ""),
+            ("\\right", ""),
             ("\\times", "x"),
+            ("\\cdot", "x"),
             ("\\sum", "Σ"),
             ("\\beta", "β"),
             ("\\sigma", "σ"),
@@ -27,6 +30,7 @@ enum FormulaFormatter {
         text = text.replacingOccurrences(of: "_{nom}", with: "nom")
         text = text.replacingOccurrences(of: "_{month}", with: "month")
         text = text.replacingOccurrences(of: "_{3y}", with: "3y")
+        text = text.replacingOccurrences(of: "_{t+1}", with: "t+1")
         text = text.replacingOccurrences(of: "_i", with: "i")
         text = text.replacingOccurrences(of: "_m", with: "m")
         text = text.replacingOccurrences(of: "_p", with: "p")
@@ -34,9 +38,15 @@ enum FormulaFormatter {
         text = text.replacingOccurrences(of: "_e", with: "e")
         text = text.replacingOccurrences(of: "_0", with: "0")
         text = text.replacingOccurrences(of: "_1", with: "1")
+        text = text.replacingOccurrences(of: "^{-1}", with: "^(-1)")
         text = text.replacingOccurrences(of: "^2", with: "²")
+        text = text.replacingOccurrences(of: "^3", with: "³")
         text = text.replacingOccurrences(of: "^{-n}", with: "^(-n)")
         text = text.replacingOccurrences(of: "^m", with: "^m")
+        text = text.replacingOccurrences(of: " - ", with: " − ")
+        text = text.replacingOccurrences(of: "\\", with: "")
+        text = text.replacingOccurrences(of: "{", with: "")
+        text = text.replacingOccurrences(of: "}", with: "")
         text = text.replacingOccurrences(of: "  ", with: " ")
         return text
     }

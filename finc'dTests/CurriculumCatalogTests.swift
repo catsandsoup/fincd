@@ -3,6 +3,7 @@
 //  finc'dTests
 //
 
+import Foundation
 import Testing
 @testable import finc_d
 
@@ -46,5 +47,17 @@ struct CurriculumCatalogTests {
 
         #expect(formatted.contains("β"))
         #expect(formatted.contains("r"))
+    }
+
+    @Test func bondScaffoldingSeparatesFaceValueFromFutureValue() {
+        let question = CurriculumCatalog.questions.first { $0.primarySkillID == "S2.1-M" }
+
+        #expect(question != nil)
+
+        let note = question.map { QuestionScaffolding.conceptNote(for: $0) } ?? ""
+        let terms = question.map { QuestionScaffolding.terms(for: $0) } ?? []
+
+        #expect(note.localizedStandardContains("not the same idea as future value"))
+        #expect(terms.contains { $0.symbol == "F" || $0.meaning.localizedStandardContains("Face value") })
     }
 }

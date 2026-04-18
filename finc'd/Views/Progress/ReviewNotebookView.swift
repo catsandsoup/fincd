@@ -9,8 +9,25 @@ struct ReviewNotebookView: View {
     @Binding var selection: SidebarSelection?
     let attempts: [AttemptRecord]
 
+    @State private var selectedTag: String?
+    @State private var searchText = ""
+
     private var reviewItems: [AttemptRecord] {
         attempts.filter { !$0.isCorrect }
+    }
+
+    private var filteredItems: [AttemptRecord] {
+        reviewItems.filter { attempt in
+            (selectedTag == nil || attempt.diagnosisTag == selectedTag)
+            && (
+                searchText.isEmpty
+                || attempt.prompt.localizedStandardContains(searchText)
+                || attempt.feedback.localizedStandardContains(searchText)
+                || attempt.givenAnswer.localizedStandardContains(searchText)
+                || attempt.correctAnswer.localizedStandardContains(searchText)
+                || LearningCopy.patternTitle(for: attempt.diagnosisTag).localizedStandardContains(searchText)
+            )
+        }
     }
 
     private var groupedTags: [(String, Int)] {
@@ -26,7 +43,7 @@ struct ReviewNotebookView: View {
 
                 if reviewItems.isEmpty {
                     ContentUnavailableView(
-                        "Notebook Empty",
+                        "Notebook Clear",
                         systemImage: "checkmark.circle",
                         description: Text("Questions that need another look will appear here.")
                     )
@@ -37,79 +54,208 @@ struct ReviewNotebookView: View {
                 }
             }
             .padding(28)
-            .frame(maxWidth: 980, alignment: .leading)
+            .frame(maxWidth: 1040, alignment: .leading)
         }
+        .searchable(text: $searchText, prompt: "Search notebook")
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Notebook")
-                .font(.largeTitle.weight(.semibold))
-            Text("Review ideas by pattern, then return to the lesson that introduced them.")
-                .font(.title3)
-                .foregroundStyle(.secondary)
+        GlassPanel {
+            ViewThatFits {
+                HStack(alignment: .center, spacing: 24) {
+                    notebookTitle
+                    Spacer(minLength: 24)
+                    notebookCount
+                }
+
+                VStack(alignment: .leading, spacing: 18) {
+                    notebookTitle
+                    notebookCount
+                }
+            }
         }
     }
 
+    private var notebookTitle: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Notebook")
+                .font(.largeTitle.weight(.semibold))
+            Text("Review ideas by pattern, then return to the step that introduced them.")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var notebookCount: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(reviewItems.count)")
+                .font(.system(.largeTitle, design: .rounded, weight: .semibold))
+            Text(reviewItems.count == 1 ? "item to revisit" : "items to revisit")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(minWidth: 150, alignment: .leading)
+    }
+
     private var tagStrip: some View {
-        FlowLayout(spacing: 8) {
-            ForEach(groupedTags, id: \.0) { tag, count in
-                Text("\(tag.replacingOccurrences(of: "_", with: " ")) \(count)")
-                    .font(.caption.weight(.medium))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.quaternary.opacity(0.22), in: .capsule)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Patterns")
+                .font(.title3.weight(.semibold))
+
+            FlowLayout(spacing: 8) {
+                NotebookTagButton(
+                    title: "All",
+                    count: reviewItems.count,
+                    isSelected: selectedTag == nil
+                ) {
+                    selectedTag = nil
+                }
+
+                ForEach(groupedTags, id: \.0) { tag, count in
+                    NotebookTagButton(
+                        title: LearningCopy.patternTitle(for: tag),
+                        count: count,
+                        isSelected: selectedTag == tag
+                    ) {
+                        selectedTag = tag
+                    }
+                }
             }
         }
     }
 
     private var reviewRows: some View {
         LazyVStack(spacing: 10) {
-            ForEach(reviewItems) { attempt in
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(attempt.prompt)
-                            .font(.headline)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer()
-                        if let tag = attempt.diagnosisTag {
-                            Text(tag.replacingOccurrences(of: "_", with: " "))
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
-                    HStack(alignment: .top, spacing: 18) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Answer")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(attempt.givenAnswer)
-                        }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Expected")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(attempt.correctAnswer)
-                        }
-                    }
-
-                    Text(attempt.feedback)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Button {
+            if filteredItems.isEmpty {
+                ContentUnavailableView(
+                    "No Matching Notes",
+                    systemImage: "magnifyingglass",
+                    description: Text("Try a different pattern or search term.")
+                )
+                .frame(maxWidth: .infinity, minHeight: 260)
+            } else {
+                ForEach(filteredItems) { attempt in
+                    NotebookReviewRow(attempt: attempt) {
                         selection = .lesson(attempt.lessonID)
-                    } label: {
-                        Label("Retry Lesson", systemImage: "arrow.clockwise")
                     }
-                    .buttonStyle(QuietGlassButtonStyle())
                 }
-                .padding(16)
-                .background(.thinMaterial, in: .rect(cornerRadius: 14))
             }
         }
+    }
+}
+
+private struct NotebookTagButton: View {
+    let title: String
+    let count: Int
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(title)
+                Text(count.formatted())
+                    .foregroundStyle(.secondary)
+            }
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background {
+                Capsule()
+                    .fill(isSelected ? AnyShapeStyle(.tint.opacity(0.18)) : AnyShapeStyle(.quaternary.opacity(0.2)))
+            }
+            .foregroundStyle(isSelected ? .primary : .secondary)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct NotebookReviewRow: View {
+    let attempt: AttemptRecord
+    let retry: () -> Void
+
+    private var question: Question? {
+        CurriculumCatalog.questionsByID[attempt.questionID]
+    }
+
+    private var lesson: Lesson? {
+        CurriculumCatalog.lessonsByID[attempt.lessonID]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(LearningCopy.patternTitle(for: attempt.diagnosisTag))
+                    .font(.headline)
+
+                Spacer()
+
+                Text(attempt.attemptedAt.formatted(.dateTime.month(.abbreviated).day().hour().minute()))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let lesson {
+                Label(LearningCopy.lessonPath(for: lesson), systemImage: lesson.kind.systemImage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(attempt.prompt)
+                .font(.title3.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let formula = question?.formula {
+                FormulaView(formula: formula)
+                    .padding(.vertical, 2)
+            }
+
+            ViewThatFits {
+                HStack(alignment: .top, spacing: 18) {
+                    answerBlock(title: "Your answer", value: cleaned(attempt.givenAnswer))
+                    answerBlock(title: "Expected", value: cleaned(attempt.correctAnswer))
+                }
+
+                VStack(alignment: .leading, spacing: 12) {
+                    answerBlock(title: "Your answer", value: cleaned(attempt.givenAnswer))
+                    answerBlock(title: "Expected", value: cleaned(attempt.correctAnswer))
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(attempt.feedback)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(LearningCopy.patternGuidance(for: attempt.diagnosisTag))
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Button(action: retry) {
+                Label("Practice This", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(QuietGlassButtonStyle())
+        }
+        .padding(16)
+        .background(.thinMaterial, in: .rect(cornerRadius: 14))
+    }
+
+    private func answerBlock(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func cleaned(_ value: String) -> String {
+        value.isEmpty ? "No answer" : value
     }
 }
 
