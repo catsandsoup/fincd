@@ -22,7 +22,7 @@ struct HomeDashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 header
-                todayPanel
+                todaySection
                 pathSection
                 revisitSection
             }
@@ -37,17 +37,17 @@ struct HomeDashboardView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("finc'd")
                 .font(.largeTitle.weight(.semibold))
-            Text("Name the inputs, choose the method, solve the next step.")
+            Text("Start with the next small step, then revisit ideas that need another pass.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var todayPanel: some View {
-        GlassPanel {
+    private var todaySection: some View {
+        GroupBox {
             ViewThatFits {
-                HStack(alignment: .center, spacing: 28) {
+                HStack(alignment: .top, spacing: 28) {
                     todayCopy
                     Spacer(minLength: 18)
                     Divider()
@@ -60,15 +60,14 @@ struct HomeDashboardView: View {
                     todayActions
                 }
             }
+            .padding(.vertical, 4)
+        } label: {
+            Label("Next study step", systemImage: recommendedLesson.kind.systemImage)
         }
     }
 
     private var todayCopy: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Start here", systemImage: recommendedLesson.kind.systemImage)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-
             Text(recommendedLesson.title)
                 .font(.largeTitle.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
@@ -130,7 +129,7 @@ struct HomeDashboardView: View {
                                 Text(course.subtitle)
                                     .font(.callout)
                                     .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                                    .fixedSize(horizontal: false, vertical: true)
 
                                 ProgressView(value: confidence)
                                     .tint(course.tint)
@@ -139,9 +138,10 @@ struct HomeDashboardView: View {
 
                             Spacer()
 
-                            Text(NumberFormatting.confidenceStatus(confidence))
-                                .font(.callout.weight(.medium))
+                            Text(courseCue(confidence))
+                                .font(.callout)
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
 
                             Image(systemName: "chevron.right")
                                 .font(.caption.weight(.semibold))
@@ -171,15 +171,28 @@ struct HomeDashboardView: View {
                 VStack(spacing: 0) {
                     ForEach(skillsToRevisit) { skill in
                         HStack(spacing: 10) {
-                            SkillTagView(tag: skill.tag)
-                            Text(skill.title)
-                                .lineLimit(2)
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 20)
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(skill.title)
+                                    .font(.headline)
+                                    .lineLimit(2)
+
+                                Text(LearningCopy.skillGuidance(for: skill, mastery: masteryMap[skill.id]))
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+
                             Spacer()
                         }
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 12)
 
                         if skill.id != skillsToRevisit.last?.id {
                             Divider()
+                                .padding(.leading, 30)
                         }
                     }
                 }
@@ -201,5 +214,18 @@ struct HomeDashboardView: View {
         return [course?.title, unit?.title, NumberFormatting.duration(seconds: lesson.estimatedSeconds)]
             .compactMap { $0 }
             .joined(separator: " / ")
+    }
+
+    private func courseCue(_ confidence: Double) -> String {
+        switch confidence {
+        case ..<0.05:
+            "Start"
+        case ..<0.7:
+            "Keep going"
+        case ..<0.95:
+            "Review"
+        default:
+            "Settled"
+        }
     }
 }

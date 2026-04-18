@@ -49,7 +49,7 @@ struct ReviewNotebookView: View {
                     )
                     .frame(maxWidth: .infinity, minHeight: 320)
                 } else {
-                    tagStrip
+                    filterBar
                     reviewRows
                 }
             }
@@ -60,73 +60,43 @@ struct ReviewNotebookView: View {
     }
 
     private var header: some View {
-        GlassPanel {
-            ViewThatFits {
-                HStack(alignment: .center, spacing: 24) {
-                    notebookTitle
-                    Spacer(minLength: 24)
-                    notebookCount
-                }
-
-                VStack(alignment: .leading, spacing: 18) {
-                    notebookTitle
-                    notebookCount
-                }
-            }
-        }
-    }
-
-    private var notebookTitle: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Notebook")
                 .font(.largeTitle.weight(.semibold))
-            Text("Review ideas by pattern, then return to the step that introduced them.")
+            Text("Return to ideas that need another pass, one pattern at a time.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-        }
-    }
 
-    private var notebookCount: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("\(reviewItems.count)")
-                .font(.system(.largeTitle, design: .rounded, weight: .semibold))
-            Text(reviewItems.count == 1 ? "item to revisit" : "items to revisit")
-                .font(.headline)
+            Text(reviewItems.count == 1 ? "1 idea to revisit" : "\(reviewItems.count) ideas to revisit")
+                .font(.callout)
                 .foregroundStyle(.secondary)
         }
-        .frame(minWidth: 150, alignment: .leading)
     }
 
-    private var tagStrip: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Patterns")
-                .font(.title3.weight(.semibold))
+    private var filterBar: some View {
+        HStack(spacing: 12) {
+            Text("Review pattern")
+                .font(.headline)
 
-            FlowLayout(spacing: 8) {
-                NotebookTagButton(
-                    title: "All",
-                    count: reviewItems.count,
-                    isSelected: selectedTag == nil
-                ) {
-                    selectedTag = nil
-                }
+            Picker("Review pattern", selection: $selectedTag) {
+                Text("All patterns (\(reviewItems.count))")
+                    .tag(nil as String?)
 
                 ForEach(groupedTags, id: \.0) { tag, count in
-                    NotebookTagButton(
-                        title: LearningCopy.patternTitle(for: tag),
-                        count: count,
-                        isSelected: selectedTag == tag
-                    ) {
-                        selectedTag = tag
-                    }
+                    Text("\(LearningCopy.patternTitle(for: tag)) (\(count))")
+                        .tag(tag as String?)
                 }
             }
+            .labelsHidden()
+            .frame(maxWidth: 340)
+
+            Spacer()
         }
     }
 
     private var reviewRows: some View {
-        LazyVStack(spacing: 10) {
+        LazyVStack(spacing: 0) {
             if filteredItems.isEmpty {
                 ContentUnavailableView(
                     "No Matching Notes",
@@ -139,41 +109,21 @@ struct ReviewNotebookView: View {
                     NotebookReviewRow(attempt: attempt) {
                         selection = .lesson(attempt.lessonID)
                     }
+
+                    if attempt.id != filteredItems.last?.id {
+                        Divider()
+                    }
                 }
             }
         }
     }
 }
 
-private struct NotebookTagButton: View {
-    let title: String
-    let count: Int
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Text(title)
-                Text(count.formatted())
-                    .foregroundStyle(.secondary)
-            }
-            .font(.caption.weight(.medium))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background {
-                Capsule()
-                    .fill(isSelected ? AnyShapeStyle(.tint.opacity(0.18)) : AnyShapeStyle(.quaternary.opacity(0.2)))
-            }
-            .foregroundStyle(isSelected ? .primary : .secondary)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 private struct NotebookReviewRow: View {
     let attempt: AttemptRecord
     let retry: () -> Void
+
+    @State private var showsDetails = false
 
     private var question: Question? {
         CurriculumCatalog.questionsByID[attempt.questionID]
@@ -196,6 +146,11 @@ private struct NotebookReviewRow: View {
                     .foregroundStyle(.secondary)
             }
 
+            Text(LearningCopy.patternGuidance(for: attempt.diagnosisTag))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             if let lesson {
                 Label(LearningCopy.lessonPath(for: lesson), systemImage: lesson.kind.systemImage)
                     .font(.caption)
@@ -211,35 +166,35 @@ private struct NotebookReviewRow: View {
                     .padding(.vertical, 2)
             }
 
-            ViewThatFits {
-                HStack(alignment: .top, spacing: 18) {
-                    answerBlock(title: "Your answer", value: cleaned(attempt.givenAnswer))
-                    answerBlock(title: "Expected", value: cleaned(attempt.correctAnswer))
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    answerBlock(title: "Your answer", value: cleaned(attempt.givenAnswer))
-                    answerBlock(title: "Expected", value: cleaned(attempt.correctAnswer))
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(attempt.feedback)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(LearningCopy.patternGuidance(for: attempt.diagnosisTag))
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
             Button(action: retry) {
                 Label("Practice This", systemImage: "arrow.clockwise")
             }
             .buttonStyle(QuietGlassButtonStyle())
+
+            DisclosureGroup("Answer details", isExpanded: $showsDetails) {
+                VStack(alignment: .leading, spacing: 12) {
+                    ViewThatFits {
+                        HStack(alignment: .top, spacing: 18) {
+                            answerBlock(title: "Your answer", value: cleaned(attempt.givenAnswer))
+                            answerBlock(title: "Expected answer", value: cleaned(attempt.correctAnswer))
+                        }
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            answerBlock(title: "Your answer", value: cleaned(attempt.givenAnswer))
+                            answerBlock(title: "Expected answer", value: cleaned(attempt.correctAnswer))
+                        }
+                    }
+
+                    Text(attempt.feedback)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, 8)
+            }
+            .font(.callout)
         }
-        .padding(16)
-        .background(.thinMaterial, in: .rect(cornerRadius: 14))
+        .padding(.vertical, 16)
     }
 
     private func answerBlock(title: String, value: String) -> some View {

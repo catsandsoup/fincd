@@ -51,15 +51,17 @@ struct ProgressDiagnosticsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            header
-            progressSummary
-            courseOverview
-            skillTableHeader
-            skillTable
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                header
+                studyGuidance
+                courseOverview
+                skillListHeader
+                skillList
+            }
+            .padding(28)
+            .frame(maxWidth: 1080, alignment: .leading)
         }
-        .padding(28)
-        .frame(maxWidth: 1180, maxHeight: .infinity, alignment: .topLeading)
         .searchable(text: $searchText, prompt: "Find a skill")
     }
 
@@ -67,89 +69,93 @@ struct ProgressDiagnosticsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Progress")
                 .font(.largeTitle.weight(.semibold))
-            Text("See which ideas are new, practiced, ready, or secure.")
+            Text("Choose the next idea to revisit, then keep the path moving.")
                 .font(.title3)
                 .foregroundStyle(.secondary)
         }
     }
 
-    private var progressSummary: some View {
-        GlassPanel {
+    private var studyGuidance: some View {
+        GroupBox {
             ViewThatFits {
-                HStack(alignment: .center, spacing: 24) {
-                    SummaryMetric(
-                        title: "Overall",
-                        value: NumberFormatting.confidence(averageConfidence),
-                        detail: NumberFormatting.confidenceStatus(averageConfidence),
-                        systemImage: "gauge.with.dots.needle.bottom.50percent"
-                    )
-
+                HStack(alignment: .top, spacing: 24) {
+                    nextStepBlock
                     Divider()
-
-                    SummaryMetric(
-                        title: "Secure skills",
-                        value: "\(skillRows.filter { $0.level >= 4 }.count)",
-                        detail: "\(skillRows.count) total",
-                        systemImage: "checkmark.seal"
-                    )
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("Best next step", systemImage: "arrow.forward.circle")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-
-                        Text(nextSkill?.title ?? "Start with the first short lesson")
-                            .font(.title3.weight(.semibold))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    directionBlock
                 }
 
                 VStack(alignment: .leading, spacing: 18) {
-                    SummaryMetric(
-                        title: "Overall",
-                        value: NumberFormatting.confidence(averageConfidence),
-                        detail: NumberFormatting.confidenceStatus(averageConfidence),
-                        systemImage: "gauge.with.dots.needle.bottom.50percent"
-                    )
-                    SummaryMetric(
-                        title: "Secure skills",
-                        value: "\(skillRows.filter { $0.level >= 4 }.count)",
-                        detail: "\(skillRows.count) total",
-                        systemImage: "checkmark.seal"
-                    )
+                    nextStepBlock
+                    Divider()
+                    directionBlock
                 }
             }
+            .padding(.vertical, 4)
+        } label: {
+            Label("Study guidance", systemImage: "arrow.forward.circle")
         }
+    }
+
+    private var nextStepBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Work on next")
+                .font(.headline)
+
+            Text(nextSkill?.title ?? "Start with the first short lesson")
+                .font(.title3.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(nextSkill.map { LearningCopy.skillGuidance(for: $0, mastery: masteryMap[$0.id]) } ?? "Build the first idea before checking speed or accuracy.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var directionBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Current direction")
+                .font(.headline)
+
+            Text(NumberFormatting.confidenceStatus(averageConfidence))
+                .font(.title3.weight(.semibold))
+
+            ProgressView(value: averageConfidence)
+                .accessibilityLabel("Overall study progress")
+                .accessibilityValue(NumberFormatting.confidence(averageConfidence))
+
+            Text("\(skillRows.count) ideas are available across the course path.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var courseOverview: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 14)], spacing: 14) {
-            ForEach(CurriculumCatalog.courses) { course in
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        Label(course.title, systemImage: course.symbol)
-                            .font(.headline)
-                            .foregroundStyle(course.tint)
-                        Spacer()
-                        Text(NumberFormatting.confidenceStatus(ProgressResolver.courseConfidence(course.id, masteries: masteryMap)))
-                            .foregroundStyle(.secondary)
-                    }
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Study Areas")
+                .font(.title2.weight(.semibold))
 
-                    ProgressView(value: ProgressResolver.courseConfidence(course.id, masteries: masteryMap))
-                        .tint(course.tint)
+            VStack(spacing: 0) {
+                ForEach(CurriculumCatalog.courses) { course in
+                    CourseStudyAreaRow(
+                        course: course,
+                        confidence: ProgressResolver.courseConfidence(course.id, masteries: masteryMap)
+                    )
+
+                    if course.id != CurriculumCatalog.courses.last?.id {
+                        Divider()
+                            .padding(.leading, 38)
+                    }
                 }
-                .padding(16)
-                .background(.thinMaterial, in: .rect(cornerRadius: 14))
             }
         }
     }
 
-    private var skillTableHeader: some View {
+    private var skillListHeader: some View {
         HStack(alignment: .center, spacing: 16) {
-            Text("Skill Map")
+            Text("Ideas to Revisit")
                 .font(.title2.weight(.semibold))
 
             Spacer()
@@ -166,48 +172,24 @@ struct ProgressDiagnosticsView: View {
         }
     }
 
-    private var skillTable: some View {
-        Table(filteredRows) {
-            TableColumn("Skill") { row in
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(row.skill.title)
-                        .font(.headline)
-                        .lineLimit(2)
-                    Text("\(row.courseTitle) / \(row.unitTitle)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .padding(.vertical, 4)
-            }
-
-            TableColumn("Step") { row in
-                SkillTagView(tag: row.skill.tag)
-            }
-
-            TableColumn("State") { row in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(row.statusTitle)
-                    ProgressView(value: Double(row.level), total: 4)
-                        .tint(row.tint)
-                        .frame(maxWidth: 140)
-                }
-            }
-
-            TableColumn("Attempts") { row in
-                Text(row.attempts.formatted())
-                    .foregroundStyle(row.attempts == 0 ? .secondary : .primary)
-            }
-        }
-        .tableStyle(.inset)
-        .frame(minHeight: 320)
-        .overlay {
+    private var skillList: some View {
+        VStack(spacing: 0) {
             if filteredRows.isEmpty {
                 ContentUnavailableView(
-                    "No Matching Skills",
+                    "No Matching Ideas",
                     systemImage: "magnifyingglass",
                     description: Text("Try a different filter or search term.")
                 )
+                .frame(maxWidth: .infinity, minHeight: 260)
+            } else {
+                ForEach(filteredRows) { row in
+                    SkillStudyRow(row: row)
+
+                    if row.id != filteredRows.last?.id {
+                        Divider()
+                            .padding(.leading, 28)
+                    }
+                }
             }
         }
     }
@@ -225,10 +207,10 @@ private enum ProgressFilter: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .all: "All"
-        case .new: "New"
-        case .practicing: "Practicing"
+        case .new: "Start"
+        case .practicing: "Practice"
         case .ready: "Ready"
-        case .secure: "Secure"
+        case .secure: "Settled"
         }
     }
 
@@ -276,38 +258,112 @@ private struct SkillProgressRow: Identifiable {
         case 0:
             .secondary
         case 1...2:
-            .orange
+            .accentColor
         case 3:
-            .blue
+            .accentColor
         default:
-            .green
+            .secondary
         }
     }
 }
 
-private struct SummaryMetric: View {
-    let title: String
-    let value: String
-    let detail: String
-    let systemImage: String
+private struct CourseStudyAreaRow: View {
+    let course: Course
+    let confidence: Double
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: course.symbol)
                 .font(.title3)
+                .foregroundStyle(course.tint)
+                .frame(width: 26)
+
+            VStack(alignment: .leading, spacing: 7) {
+                Text(course.title)
+                    .font(.headline)
+
+                Text(course.subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ProgressView(value: confidence)
+                    .tint(course.tint)
+                    .frame(maxWidth: 260)
+                    .accessibilityLabel("\(course.title) progress")
+                    .accessibilityValue(NumberFormatting.confidence(confidence))
+            }
+
+            Spacer(minLength: 16)
+
+            Text(NumberFormatting.confidenceStatus(confidence))
+                .font(.callout)
                 .foregroundStyle(.secondary)
-                .frame(width: 24)
+        }
+        .padding(.vertical, 12)
+    }
+}
+
+private struct SkillStudyRow: View {
+    let row: SkillProgressRow
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: row.systemImage)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(row.tint)
+                .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(value)
-                    .font(.title2.weight(.semibold))
-                Text(title)
+                Text(row.skill.title)
                     .font(.headline)
-                Text(detail)
-                    .font(.caption)
+                    .lineLimit(2)
+
+                Text("\(row.courseTitle) / \(row.unitTitle)")
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                Text(LearningCopy.skillGuidance(for: row.skill, mastery: nil, level: row.level))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 16)
+
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(row.statusTitle)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                ProgressView(value: Double(row.level), total: 4)
+                    .tint(row.tint)
+                    .frame(width: 96)
+
+                if row.attempts > 0 {
+                    Text("\(row.attempts) attempt\(row.attempts == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private extension SkillProgressRow {
+    var systemImage: String {
+        switch level {
+        case 0:
+            "circle"
+        case 1...2:
+            "arrow.triangle.2.circlepath"
+        case 3:
+            "flag"
+        default:
+            "checkmark"
+        }
     }
 }

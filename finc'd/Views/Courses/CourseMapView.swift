@@ -18,12 +18,6 @@ struct CourseMapView: View {
         CurriculumCatalog.lessons(forCourse: courseID)
     }
 
-    private var skills: [Skill] {
-        CurriculumCatalog.units(for: courseID).flatMap { unit in
-            CurriculumCatalog.skills.filter { $0.unitID == unit.id }
-        }
-    }
-
     private var courseConfidence: Double {
         ProgressResolver.courseConfidence(courseID, masteries: masteryMap)
     }
@@ -38,7 +32,12 @@ struct CourseMapView: View {
                 courseHeader
 
                 ForEach(CurriculumCatalog.units(for: courseID)) { unit in
-                    UnitSectionView(unit: unit, selection: $selection, masteryMap: masteryMap)
+                    UnitSectionView(
+                        unit: unit,
+                        currentLessonID: nextLesson?.id,
+                        selection: $selection,
+                        masteryMap: masteryMap
+                    )
                 }
             }
             .padding(.horizontal, 34)
@@ -48,9 +47,9 @@ struct CourseMapView: View {
     }
 
     private var courseHeader: some View {
-        GlassPanel {
+        GroupBox {
             ViewThatFits {
-                HStack(alignment: .center, spacing: 24) {
+                HStack(alignment: .top, spacing: 24) {
                     courseTitleBlock
                     Spacer(minLength: 24)
                     courseActionBlock
@@ -61,6 +60,9 @@ struct CourseMapView: View {
                     courseActionBlock
                 }
             }
+            .padding(.vertical, 4)
+        } label: {
+            Label("Course path", systemImage: course?.symbol ?? "graduationcap")
         }
     }
 
@@ -87,19 +89,15 @@ struct CourseMapView: View {
                 .accessibilityLabel("Course progress")
                 .accessibilityValue(NumberFormatting.confidence(courseConfidence))
 
-            HStack(spacing: 12) {
-                Text("\(lessons.count) lessons")
-                Text("\(skills.count) skills")
-                Text("\(secureSkillCount) secure")
-            }
-            .font(.callout.weight(.medium))
-            .foregroundStyle(.secondary)
+            Text("\(lessons.count) short lessons")
+                .font(.callout)
+                .foregroundStyle(.secondary)
         }
     }
 
     private var courseActionBlock: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(NumberFormatting.confidenceStatus(courseConfidence))
+            Text(courseCue)
                 .font(.title2.weight(.semibold))
 
             if let nextLesson {
@@ -118,13 +116,21 @@ struct CourseMapView: View {
         .frame(minWidth: 220, alignment: .leading)
     }
 
-    private var secureSkillCount: Int {
-        skills.filter { (masteryMap[$0.id]?.level ?? 0) >= 4 }.count
+    private var courseCue: String {
+        switch courseConfidence {
+        case ..<0.05:
+            "Start here"
+        case ..<0.95:
+            "Keep going"
+        default:
+            "Ready for review"
+        }
     }
 }
 
 private struct UnitSectionView: View {
     let unit: Unit
+    let currentLessonID: String?
     @Binding var selection: SidebarSelection?
     let masteryMap: [String: SkillMastery]
 
@@ -142,9 +148,10 @@ private struct UnitSectionView: View {
 
             VStack(spacing: 0) {
                 ForEach(CurriculumCatalog.lessons(for: unit.id)) { lesson in
+                    let confidence = ProgressResolver.lessonConfidence(lesson, masteries: masteryMap)
                     LessonPathRow(
                         lesson: lesson,
-                        confidence: ProgressResolver.lessonConfidence(lesson, masteries: masteryMap)
+                        state: LessonPathState(lessonID: lesson.id, currentLessonID: currentLessonID, confidence: confidence)
                     ) {
                         selection = .lesson(lesson.id)
                     }
@@ -162,25 +169,20 @@ private struct UnitSectionView: View {
 
 private struct LessonPathRow: View {
     let lesson: Lesson
-    let confidence: Double
+    let state: LessonPathState
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
-                Image(systemName: lesson.kind.systemImage)
+                Image(systemName: state.systemImage)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(state.tint(base: tint))
                     .frame(width: 28)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(lesson.title)
-                            .font(.headline)
-                        Text(lesson.kind.title)
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(lesson.title)
+                        .font(.headline)
 
                     Text(lessonSummary)
                         .font(.callout)
@@ -191,8 +193,9 @@ private struct LessonPathRow: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 5) {
-                    Text(NumberFormatting.confidenceStatus(confidence))
-                        .font(.callout.weight(.medium))
+                    Text(state.title)
+                        .font(.callout)
+                        .foregroundStyle(state.tint(base: tint))
                     Text(NumberFormatting.duration(seconds: lesson.estimatedSeconds))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -220,5 +223,59 @@ private struct LessonPathRow: View {
             .compactMap { CurriculumCatalog.skill(id: $0)?.title }
             .prefix(2)
             .joined(separator: " / ")
+    }
+}
+
+private enum LessonPathState {
+    case current
+    case done
+    case review
+    case new
+
+    init(lessonID: String, currentLessonID: String?, confidence: Double) {
+        if confidence >= 0.95 {
+            self = .done
+        } else if lessonID == currentLessonID {
+            self = .current
+        } else if confidence > 0.05 {
+            self = .review
+        } else {
+            self = .new
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .current:
+            "Current"
+        case .done:
+            "Done"
+        case .review:
+            "Review"
+        case .new:
+            "New"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .current:
+            "play.circle.fill"
+        case .done:
+            "checkmark.circle.fill"
+        case .review:
+            "arrow.triangle.2.circlepath.circle"
+        case .new:
+            "circle"
+        }
+    }
+
+    func tint(base: Color) -> Color {
+        switch self {
+        case .current:
+            base
+        case .done, .review, .new:
+            .secondary
+        }
     }
 }

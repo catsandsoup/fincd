@@ -35,8 +35,11 @@ struct LessonRunnerView: View {
                         lessonHeader(question: question)
                         questionBody(question)
                     }
-                    .padding(28)
-                    .frame(maxWidth: 1180, alignment: .leading)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 26)
+                    .padding(.bottom, 34)
+                    .frame(maxWidth: 1060, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
 
                 actionBar(question)
@@ -65,12 +68,13 @@ struct LessonRunnerView: View {
     }
 
     private func lessonHeader(question: Question) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(lesson.title)
-                        .font(.largeTitle.weight(.semibold))
+                        .font(.title.weight(.semibold))
                     Text(headerDetail)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                 }
 
@@ -78,11 +82,13 @@ struct LessonRunnerView: View {
 
                 if let skill = CurriculumCatalog.skill(id: question.primarySkillID) {
                     SkillTagView(tag: skill.tag)
+                        .opacity(0.72)
                 }
             }
 
             ProgressView(value: Double(currentIndex), total: Double(max(queue.count, 1)))
                 .tint(tint)
+                .controlSize(.small)
                 .accessibilityLabel("Lesson progress")
         }
     }
@@ -91,10 +97,10 @@ struct LessonRunnerView: View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .top, spacing: 24) {
                 promptColumn(question)
-                    .frame(minWidth: 520, maxWidth: 760, alignment: .leading)
+                    .frame(minWidth: 590, maxWidth: 720, alignment: .leading)
 
                 LessonWorkspaceView(question: question, tint: tint)
-                    .frame(width: 330, alignment: .topLeading)
+                    .frame(width: 270, alignment: .topLeading)
                     .id(question.id)
             }
 
@@ -107,26 +113,29 @@ struct LessonRunnerView: View {
     }
 
     private func promptColumn(_ question: Question) -> some View {
-        VStack(alignment: .leading, spacing: 22) {
-            GlassPanel {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(question.context)
-                        .font(.body)
+                        .font(.title3)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(question.prompt)
-                        .font(.title2.weight(.semibold))
+                        .font(.system(.title, design: .default, weight: .semibold))
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let formula = question.formula {
                         FormulaView(formula: formula)
+                            .padding(.top, 4)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-            }
 
-            inputView(question)
+                inputView(question)
+            }
+            .padding(26)
+            .background(.quaternary.opacity(0.12), in: .rect(cornerRadius: 16))
 
             if hintsShown > 0 {
                 hintsView(question)
@@ -146,7 +155,7 @@ struct LessonRunnerView: View {
     private func inputView(_ question: Question) -> some View {
         switch question.kind {
         case .choice, .formulaMapping:
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(question.options) { option in
                     Button {
                         guard feedback?.isCorrect != true else { return }
@@ -159,11 +168,17 @@ struct LessonRunnerView: View {
                                 .accessibilityHidden(true)
 
                             Text(option.label)
+                                .font(.title3.weight(.medium))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .padding(14)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 15)
                         .background(optionBackground(option), in: .rect(cornerRadius: 12))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(optionBorder(option), lineWidth: selectedOptionID == option.id ? 1.2 : 0.8)
+                        }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(option.label)
@@ -175,8 +190,8 @@ struct LessonRunnerView: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 TextField("Answer", text: $numericText)
                     .textFieldStyle(.roundedBorder)
-                    .font(.system(.title2, design: .rounded, weight: .semibold))
-                    .frame(width: 220)
+                    .font(.system(.title, design: .rounded, weight: .semibold))
+                    .frame(width: 260)
                     .disabled(feedback?.isCorrect == true)
                     .focused($numericFieldFocused)
                     .onSubmit {
@@ -206,7 +221,7 @@ struct LessonRunnerView: View {
                     Spacer()
                 }
                 .padding(12)
-                .background(.quaternary.opacity(0.18), in: .rect(cornerRadius: 12))
+                .background(.quaternary.opacity(0.12), in: .rect(cornerRadius: 12))
             }
         }
     }
@@ -262,6 +277,22 @@ struct LessonRunnerView: View {
         }
 
         return Color.secondary.opacity(0.08)
+    }
+
+    private func optionBorder(_ option: AnswerOption) -> Color {
+        if feedback != nil, option.isCorrect {
+            return .green.opacity(0.4)
+        }
+
+        if feedback != nil, selectedOptionID == option.id, !option.isCorrect {
+            return .red.opacity(0.36)
+        }
+
+        if selectedOptionID == option.id {
+            return tint.opacity(0.46)
+        }
+
+        return Color.secondary.opacity(0.16)
     }
 
     private func optionForeground(_ option: AnswerOption) -> Color {

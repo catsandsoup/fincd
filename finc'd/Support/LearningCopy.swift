@@ -6,6 +6,23 @@
 import Foundation
 
 enum LearningCopy {
+    static func skillGuidance(for skill: Skill, mastery: SkillMastery?) -> String {
+        skillGuidance(for: skill, mastery: mastery, level: mastery?.level ?? 0)
+    }
+
+    static func skillGuidance(for skill: Skill, mastery: SkillMastery?, level: Int) -> String {
+        switch level {
+        case 0:
+            return "Start by naming the inputs in plain language."
+        case 1...2:
+            return "Revisit the setup, then solve one line carefully."
+        case 3:
+            return "Try a check question and watch the units."
+        default:
+            return "Keep this in light review while you build the next idea."
+        }
+    }
+
     static func patternTitle(for diagnosisTag: String?) -> String {
         guard let diagnosisTag else { return "Needs another pass" }
 
