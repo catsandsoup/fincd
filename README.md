@@ -1,5 +1,6 @@
-<img width="1512" height="982" alt="time_value_course2" src="https://github.com/user-attachments/assets/221164b9-82da-44d9-abe1-a9a851aaf1e3" />
-<img width="1512" height="982" alt="activated" src="https://github.com/user-attachments/assets/00caa15b-9519-4b2e-accf-02a42f895339" />
+<img width="1624" height="988" alt="Screenshot 2026-04-19 at 10 43 10 am" src="https://github.com/user-attachments/assets/f5cd5e59-bf9e-4cbd-8581-f905810f2fab" />
+<img width="1624" height="988" alt="Screenshot 2026-04-19 at 10 43 03 am" src="https://github.com/user-attachments/assets/449214ed-7793-4126-bcb8-d9f1f7c370a2" />
+
 # finc'd — Release 1
 
 finc'd is a native macOS learning app for finance that breaks difficult quantitative topics into smaller, clearer steps.
